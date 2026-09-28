@@ -1,0 +1,25 @@
+cmake_minimum_required(VERSION 3.20)
+project(icicle LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+find_package(ICU REQUIRED COMPONENTS uc i18n)
+add_executable(icicle src/cli/main.cpp)
+target_include_directories(icicle PRIVATE include src/runtime)
+target_compile_definitions(icicle PRIVATE
+  ICICLE_RESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src/runtime"
+  ICICLE_ICU_INCLUDE="${ICU_INCLUDE_DIR}"
+  ICICLE_ICU_LIBRARY="${ICU_UC_LIBRARY}"
+  ICICLE_ICU_I18N_LIBRARY="${ICU_I18N_LIBRARY}")
+target_link_libraries(icicle PRIVATE ICU::uc ICU::i18n)
+if(MSVC)
+  message(FATAL_ERROR "The current linker backends support macOS and ELF Unix systems")
+endif()
+install(TARGETS icicle RUNTIME DESTINATION bin)
+install(DIRECTORY src/runtime/ DESTINATION share/icicle/runtime FILES_MATCHING PATTERN "*.cpp" PATTERN "*.hpp")
+install(FILES include/nlohmann/json.hpp DESTINATION share/icicle/include/nlohmann)
+install(FILES include/nlohmann/LICENSE.MIT DESTINATION share/icicle/include/nlohmann)
+enable_testing()
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+  add_test(NAME local_models COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_local.py $<TARGET_FILE:icicle>)
+endif()
