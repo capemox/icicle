@@ -2,6 +2,7 @@
 import json
 import math
 import os
+import random
 from pathlib import Path
 import struct
 import subprocess
@@ -65,6 +66,29 @@ def bpe_token_json():
     }
 
 
+def reference_bpe(text, tokenizer):
+    """Simple full-scan reference for a ByteLevel piece, without pre-tokenization."""
+    direct = set(range(33, 127)) | set(range(161, 173)) | set(range(174, 256))
+    alphabet = {}
+    extra = 0
+    for byte in range(256):
+        alphabet[byte] = chr(byte if byte in direct else 256 + extra)
+        extra += byte not in direct
+    model = tokenizer["model"]
+    vocab = model["vocab"]
+    symbols = [alphabet[b] if alphabet[b] in vocab else model.get("unk_token")
+               for b in text.encode()]
+    symbols = [s for s in symbols if s is not None]
+    ranks = {tuple(pair.split(" ")): rank for rank, pair in enumerate(model["merges"])}
+    while len(symbols) > 1:
+        best = min(range(len(symbols) - 1),
+                   key=lambda i: ranks.get((symbols[i], symbols[i + 1]), math.inf))
+        if (symbols[best], symbols[best + 1]) not in ranks:
+            break
+        symbols[best:best + 2] = [symbols[best] + symbols[best + 1]]
+    return [vocab[s] for s in symbols]
+
+
 def main(compiler):
     with tempfile.TemporaryDirectory(prefix="icicle-test-") as td:
         root = Path(td)
@@ -112,6 +136,67 @@ def main(compiler):
                                         "--format", "binary"], input=raw_input) == \
             subprocess.check_output([str(dense_bin), "--format", "binary"], input=raw_input)
 
+        # Pipeline slots must preserve order and drain partial batches. Mixed
+        # query lengths also exercise dynamic chunk scheduling and scratch reuse.
+        inputs = (dense_input + "hello " * 70 + "\n") * 31
+        for fmt in ("jsonl", "binary"):
+            expected = subprocess.check_output([str(dense_bin), "--format", fmt], input=inputs.encode())
+            for batch_size in (1, 33, 65536):
+                actual = subprocess.check_output([str(dense_bin), "--format", fmt, "--threads", "4",
+                            "--batch-size", str(batch_size), "--pipeline"],
+                            input=inputs.encode(), timeout=20)
+                assert actual == expected
+        bad_input = subprocess.run([str(dense_bin), "--threads", "4", "--batch-size", "1", "--pipeline"],
+                                   input=b"hello\n\xff\n", capture_output=True, timeout=10)
+        assert bad_input.returncode and b"not valid UTF-8" in bad_input.stderr
+        # The input byte cap can split a batch before its requested line count.
+        # Carry the pending line into the next pipeline slot without losing it.
+        large_input = (b"a" * (14 * 1024 * 1024) + b"\n") * 5
+        assert subprocess.check_output([str(dense_bin), "--threads", "4", "--batch-size", "65536",
+                                        "--pipeline", "--format", "binary"], input=large_input,
+                                       timeout=30) == b"\0" * (5 * 2 * 4)
+        del large_input
+        bench = json.loads(call(str(dense_bin), "--benchmark", "--benchmark-runs", "2",
+                                "--benchmark-repeat", "3", "--threads", "4", "--batch-size", "7",
+                                input_text=dense_input))
+        assert bench["queries_per_run"] == 12 and len(bench["runs_seconds"]) == 2
+        assert bench["median_qps"] > 0 and math.isfinite(bench["checksum"])
+        empty = subprocess.run([str(dense_bin), "--benchmark"], input=b"", capture_output=True)
+        assert empty.returncode and b"at least one input line" in empty.stderr
+
+        # Validate dimension truncation and signed per-row quantization against
+        # independent arithmetic, including an all-zero row and negative values.
+        compact = root / "compact-bin"
+        save_json(dense / "modules.json", [{"type": "sentence_transformers.models.StaticEmbedding",
+                                            "path": "0_StaticEmbedding"}])
+        compact_weights = [0, 0, 0.2, -1.0, -0.35, 2.0] + [0.0] * 10
+        safetensors(dense / "0_StaticEmbedding" / "model.safetensors", "embedding.weight", [8, 2], compact_weights)
+        call(compiler, "build", "fixture", "--local", str(dense), "--output", str(compact), "--dimension", "1")
+        result = json.loads(call(str(compact), input_text="hello world\n"))["embedding"]
+        assert len(result) == 1 and abs(result[0] - (-0.075)) < 1e-6
+        info = json.loads(call(str(compact), "--info"))
+        assert info["dimension"] == 1 and info["source_dimension"] == 2
+        call(compiler, "build", "fixture", "--local", str(dense), "--output", str(compact), "--quantize", "int8")
+        info = json.loads(call(str(compact), "--info"))
+        assert info["weight_dtype"] == "int8" and info["dimension"] == 2
+        def dequantize(row):
+            scale = max(map(abs, row)) / 127 or 1
+            return [round(v / scale) * scale for v in row]
+        a, b = dequantize([0.2, -1.0]), dequantize([-0.35, 2.0])
+        want = [(x + y) / 2 for x, y in zip(a, b)]
+        for flags in ((), ("--threads", "4", "--batch-size", "1", "--pipeline")):
+            raw = subprocess.check_output([str(compact), "--format", "binary", *flags], input=b"hello world\n\n")
+            actual = struct.unpack("<4f", raw)
+            assert all(abs(x - y) < 1e-6 for x, y in zip(actual[:2], want)) and actual[2:] == (0, 0)
+        invalid = subprocess.run([compiler, "build", "fixture", "--local", str(dense), "--output", str(compact),
+                                  "--dimension", "3"], capture_output=True)
+        assert invalid.returncode and b"exceeds source dimension" in invalid.stderr
+        safetensors(dense / "0_StaticEmbedding" / "model.safetensors", "embedding.weight",
+                    [8, 2], [float("nan")] + [0.0] * 15)
+        invalid = subprocess.run([compiler, "build", "fixture", "--local", str(dense), "--output", str(compact),
+                                  "--quantize", "int8"], capture_output=True)
+        assert invalid.returncode and b"finite weights" in invalid.stderr
+
         sparse = root / "sparse"
         sparse.mkdir()
         save_json(sparse / "modules.json", [{"type": "sentence_transformers.models.Router", "path": ""}])
@@ -134,11 +219,21 @@ def main(compiler):
         sparse_raw = subprocess.check_output([str(sparse_bin), "--format", "binary"], input=b"hello world\n")
         assert struct.unpack("<IIfIf", sparse_raw) == (2, 1, 1.5, 2, 2.5)
         sparse_input = "hello hello world world\nunknown\nΣ\nworking hello\n"
+        too_long = " ".join(["é" * 101] * 5) + "\n"
+        assert json.loads(call(str(sparse_bin), "--tokens", input_text=too_long))["tokens"] == [0, 0, 0]
         assert call(str(sparse_bin), "--threads", "2", "--batch-size", "3", input_text=sparse_input) == \
             call(str(sparse_bin), input_text=sparse_input)
         assert subprocess.check_output([str(sparse_bin), "--threads", "2", "--batch-size", "2",
                                         "--format", "binary"], input=sparse_input.encode()) == \
             subprocess.check_output([str(sparse_bin), "--format", "binary"], input=sparse_input.encode())
+        for fmt in ("jsonl", "binary"):
+            inputs = (sparse_input * 50).encode()
+            assert subprocess.check_output([str(sparse_bin), "--format", fmt, "--threads", "4",
+                            "--batch-size", "33", "--pipeline"], input=inputs, timeout=20) == \
+                   subprocess.check_output([str(sparse_bin), "--format", fmt], input=inputs)
+        invalid = subprocess.run([compiler, "build", "fixture", "--local", str(sparse), "--output", str(compact),
+                                  "--quantize", "int8"], capture_output=True)
+        assert invalid.returncode and b"dense models only" in invalid.stderr
 
         bpe = root / "bpe"
         bpe.mkdir()
@@ -168,6 +263,11 @@ def main(compiler):
         assert vector == [259.0], vector
         assert call(str(bpe_bin), "--threads", "2", "--batch-size", "3",
                     input_text=bpe_text) == call(str(bpe_bin), input_text=bpe_text)
+        for fmt in ("jsonl", "binary"):
+            inputs = (bpe_text * 20).encode()
+            assert subprocess.check_output([str(bpe_bin), "--format", fmt, "--threads", "4",
+                                "--batch-size", "33", "--pipeline"], input=inputs, timeout=20) == \
+                   subprocess.check_output([str(bpe_bin), "--format", fmt], input=inputs)
 
         bpe_sparse = root / "bpe-sparse"
         bpe_sparse.mkdir()
@@ -190,6 +290,71 @@ def main(compiler):
         result = json.loads(call(str(bpe_sparse_bin), input_text="hello hello\n"))
         assert result == {"indices": [220, 259], "values": [2.0, 1.5],
                           "dimension": size}, result
+
+        # Cross the bounded sparse output buffer, include empty records, and end
+        # with a partial batch. Verify the wire format independently of writes.
+        safetensors(bpe_sparse / "query_0_SparseStaticEmbedding" / "model.safetensors",
+                    "weight", [size], [1.0] * size)
+        call(compiler, "build", "fixture", "--local", str(bpe_sparse),
+             "--output", str(bpe_sparse_bin))
+        text = " ".join(chr(i) for i in range(33, 127))
+        ids = sorted(set(json.loads(call(str(bpe_bin), "--tokens", input_text=text + "\n"))["tokens"]))
+        record = struct.pack("<I", len(ids)) + b"".join(struct.pack("<If", i, 1.0) for i in ids)
+        inputs = ((text + "\n") * 4096 + "\n" + text + "\n").encode()
+        expected = record * 4096 + struct.pack("<I", 0) + record
+        assert len(expected) > 1024 * 1024
+        for flags in ((), ("--threads", "2", "--batch-size", "4096"),
+                      ("--threads", "4", "--batch-size", "4096", "--pipeline")):
+            assert subprocess.check_output([str(bpe_sparse_bin), "--format", "binary", *flags],
+                                           input=inputs) == expected
+
+        # A single long piece exercises heap ties, invalidated candidates and
+        # merges on either side of a previous merge. Compare to a simple oracle.
+        long_tok = bpe_token_json()
+        long_tok["added_tokens"] = []
+        long_tok["pre_tokenizer"]["use_regex"] = False
+        vocab = long_tok["model"]["vocab"]
+        for left, right in [("a", "a"), ("aa", "aa"), ("aaaa", "aaaa"),
+                            ("a", "b"), ("aa", "b"), ("b", "a"), ("ba", "aa"),
+                            ("c", "a"), ("ca", "b"), ("a", "ca")]:
+            vocab[left + right] = len(vocab)
+            long_tok["model"]["merges"].append(left + " " + right)
+        save_json(bpe / "0_StaticEmbedding" / "tokenizer.json", long_tok)
+        safetensors(bpe / "0_StaticEmbedding" / "model.safetensors", "embedding.weight",
+                    [len(vocab), 1], [float(i) for i in range(len(vocab))])
+        call(compiler, "build", "fixture", "--local", str(bpe), "--output", str(bpe_bin))
+        rng = random.Random(71)
+        texts = ["a" * n for n in (0, 1, 127, 128, 129, 511, 4096)]
+        texts += ["abacaabaa" * 37, "é😀hello" * 32]
+        texts += ["".join(rng.choices("aabc helloé😀", k=n)) for n in (127, 128, 129, 256, 1024)]
+        expected = [reference_bpe(t, long_tok) for t in texts]
+        for flags in ((), ("--threads", "2", "--batch-size", "3")):
+            actual = [json.loads(r)["tokens"] for r in call(str(bpe_bin), "--tokens", *flags,
+                          input_text="\n".join(texts) + "\n").splitlines()]
+            assert actual == expected
+
+        long_tok["truncation"] = {"direction": "Right", "max_length": 7, "stride": 0}
+        save_json(bpe / "0_StaticEmbedding" / "tokenizer.json", long_tok)
+        call(compiler, "build", "fixture", "--local", str(bpe), "--output", str(bpe_bin))
+        actual = [json.loads(r)["tokens"] for r in call(str(bpe_bin), "--tokens",
+                       input_text="\n".join(texts) + "\n").splitlines()]
+        assert actual == [ids[:7] for ids in expected]
+        long_tok["truncation"] = None
+
+        # The byte-pair table must also handle incomplete alphabets: map absent
+        # bytes to the unknown token or skip them when no unknown is configured.
+        long_tok["model"]["vocab"] = {"a": 0, "b": 1, "ab": 2, "?": 3, "??": 4}
+        long_tok["model"]["merges"] = ["a b", "? ?"]
+        for unknown in ("?", None):
+            long_tok["model"]["unk_token"] = unknown
+            save_json(bpe / "0_StaticEmbedding" / "tokenizer.json", long_tok)
+            safetensors(bpe / "0_StaticEmbedding" / "model.safetensors", "embedding.weight",
+                        [5, 1], [0, 1, 2, 3, 4])
+            call(compiler, "build", "fixture", "--local", str(bpe), "--output", str(bpe_bin))
+            texts = ["axxb", "a" + "x" * 200 + "b", "xxab" * 100, "é😀ab" * 100]
+            actual = [json.loads(r)["tokens"] for r in call(str(bpe_bin), "--tokens",
+                           input_text="\n".join(texts) + "\n").splitlines()]
+            assert actual == [reference_bpe(t, long_tok) for t in texts]
 
 
 if __name__ == "__main__":

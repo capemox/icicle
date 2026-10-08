@@ -1,4 +1,5 @@
 #include "tokenizer.hpp"
+#include <algorithm>
 #include <array>
 #include <memory>
 #include <stdexcept>
@@ -11,10 +12,10 @@
 #include <unicode/utf8.h>
 
 namespace icicle {
-static const std::array<std::string, 256>& bytelevel_alphabet();
 Tokenizer::Tokenizer(const unsigned char* blob, uint64_t nodes_offset, uint32_t nodes_count,
                      bool bpe, uint64_t merges_offset, uint32_t merges_count,
                      uint64_t merge_index_offset, uint32_t merge_index_count,
+                     uint64_t byte_pairs_offset,
                      bool bytelevel_prefix_space, bool bytelevel_regex,
                      uint32_t unknown_id, uint32_t max_chars,
                      uint32_t max_tokens, bool clean_text, bool chinese, bool lowercase,
@@ -22,6 +23,7 @@ Tokenizer::Tokenizer(const unsigned char* blob, uint64_t nodes_offset, uint32_t 
   : nodes_(reinterpret_cast<const TrieNode*>(blob + nodes_offset)),
     merges_(reinterpret_cast<const BpeMerge*>(blob + merges_offset)),
     merge_index_(reinterpret_cast<const uint32_t*>(blob + merge_index_offset)),
+    byte_pairs_(reinterpret_cast<const BpePair*>(blob + byte_pairs_offset)),
     nodes_count_(nodes_count), merges_count_(merges_count), merge_index_count_(merge_index_count),
     bpe_(bpe), bytelevel_prefix_space_(bytelevel_prefix_space), bytelevel_regex_(bytelevel_regex),
     unknown_id_(unknown_id), max_chars_(max_chars),
@@ -63,24 +65,6 @@ const BpeMerge* Tokenizer::merge(uint32_t left, uint32_t right) const {
     else last = middle;
   }
   return first < end && first->key == key ? first : nullptr;
-}
-
-static const std::array<std::string, 256>& bytelevel_alphabet() {
-  static const auto alphabet = [] {
-    std::array<std::string, 256> result;
-    std::array<bool, 256> direct{};
-    for (int b = 33; b <= 126; ++b) direct[b] = true;
-    for (int b = 161; b <= 172; ++b) direct[b] = true;
-    for (int b = 174; b <= 255; ++b) direct[b] = true;
-    int extra = 0;
-    for (int b = 0; b < 256; ++b) {
-      UChar32 cp = direct[b] ? b : 256 + extra++;
-      icu::UnicodeString one; one.append(cp);
-      one.toUTF8String(result[b]);
-    }
-    return result;
-  }();
-  return alphabet;
 }
 
 static const icu::RegexPattern& bytelevel_pattern() {
@@ -127,16 +111,26 @@ static size_t ascii_bytelevel_piece_end(std::string_view input, size_t start) {
   return end < n && end - start > 1 ? end - 1 : end;
 }
 
-void Tokenizer::encode_bpe_segment(std::string_view text, std::vector<uint32_t>& out,
-                                   std::vector<BpeSymbol>& symbols, std::string& bytes,
-                                   std::string& prefix_input) const {
+void Tokenizer::encode_bpe_segment(std::string_view text, TokenizerScratch& scratch) const {
+  auto& out = scratch.ids;
+  auto& symbols = scratch.bpe_symbols;
+  auto& bytes = scratch.ascii;
+  auto& prefix_input = scratch.bpe_input;
   auto encode_piece = [&](std::string_view piece) {
     symbols.clear();
     symbols.reserve(piece.size());
+    uint32_t previous_byte = 0;
     for (unsigned char byte : piece) {
       uint32_t id = byte_ids_[byte];
       if (id == UINT32_MAX) id = unknown_id_;
-      if (id != UINT32_MAX) symbols.push_back({id, UINT32_MAX, UINT32_MAX});
+      if (id == UINT32_MAX) continue;
+      if (!symbols.empty()) {
+        const auto& pair = byte_pairs_[previous_byte * 256 + byte];
+        symbols.back().pair_rank = pair.rank;
+        symbols.back().merged_id = pair.token_id;
+      }
+      symbols.push_back({id, UINT32_MAX, UINT32_MAX});
+      previous_byte = byte;
     }
     auto update_pair = [&](size_t i) {
       if (i + 1 == symbols.size()) {
@@ -147,7 +141,58 @@ void Tokenizer::encode_bpe_segment(std::string_view text, std::vector<uint32_t>&
       symbols[i].pair_rank = rule ? rule->rank : UINT32_MAX;
       symbols[i].merged_id = rule ? rule->token_id : UINT32_MAX;
     };
-    for (size_t i = 0; i + 1 < symbols.size(); ++i) update_pair(i);
+    // Short pieces avoid heap overhead. Long pieces use stable linked indices
+    // so selecting/removing a pair no longer scans or moves all the symbols.
+    if (symbols.size() >= 128) {
+      auto& links = scratch.bpe_links;
+      auto& heap = scratch.bpe_heap;
+      links.resize(symbols.size());
+      heap.clear();
+      auto later = [](const BpeCandidate& a, const BpeCandidate& b) {
+        return a.rank != b.rank ? a.rank > b.rank : a.left > b.left;
+      };
+      auto candidate = [&](uint32_t left, uint32_t rank, uint32_t token_id) {
+        uint32_t right = links[left].next;
+        return BpeCandidate{rank, left, right, token_id, links[left].version, links[right].version};
+      };
+      for (uint32_t i = 0; i < symbols.size(); ++i)
+        links[i] = {i ? i - 1 : UINT32_MAX, i + 1 < symbols.size() ? i + 1 : UINT32_MAX, 0};
+      for (uint32_t i = 0; i + 1 < symbols.size(); ++i)
+        if (symbols[i].pair_rank != UINT32_MAX)
+          heap.push_back(candidate(i, symbols[i].pair_rank, symbols[i].merged_id));
+      std::make_heap(heap.begin(), heap.end(), later);
+      auto schedule = [&](uint32_t left) {
+        if (left == UINT32_MAX || links[left].next == UINT32_MAX) return;
+        const BpeMerge* rule = merge(symbols[left].id, symbols[links[left].next].id);
+        if (!rule) return;
+        heap.push_back(candidate(left, rule->rank, rule->token_id));
+        std::push_heap(heap.begin(), heap.end(), later);
+      };
+      while (!heap.empty()) {
+        std::pop_heap(heap.begin(), heap.end(), later);
+        BpeCandidate pair = heap.back();
+        heap.pop_back();
+        // Earlier merges can invalidate queued pairs. Check both token versions
+        // and adjacency before applying a rule. Original indices break rank ties.
+        auto& left = links[pair.left];
+        auto& right = links[pair.right];
+        if (left.version != pair.left_version || right.version != pair.right_version ||
+            left.next != pair.right) continue;
+        symbols[pair.left].id = pair.token_id;
+        ++left.version;
+        ++right.version;
+        left.next = right.next;
+        if (right.next != UINT32_MAX) links[right.next].previous = pair.left;
+        schedule(left.previous);
+        schedule(pair.left);
+      }
+      if (!symbols.empty())
+        for (uint32_t i = 0; i != UINT32_MAX; i = links[i].next) {
+          out.push_back(symbols[i].id);
+          if (max_tokens_ && out.size() >= max_tokens_) break;
+        }
+      return;
+    }
     for (;;) {
       uint32_t best_rank = UINT32_MAX;
       size_t best_index = 0;
@@ -339,7 +384,11 @@ void Tokenizer::encode_segment(std::string_view text, std::vector<uint32_t>& out
       boundaries.push_back(cursor);
     }
     uint32_t count = static_cast<uint32_t>(boundaries.size() - 1);
-    if (count > max_chars_) { out.push_back(unknown_id_); continue; }
+    if (count > max_chars_) {
+      out.push_back(unknown_id_);
+      if (max_tokens_ && out.size() >= max_tokens_) return;
+      continue;
+    }
     size_t saved = out.size();
     bool failed = false;
     for (uint32_t start = 0; start < count;) {
@@ -384,7 +433,7 @@ void Tokenizer::encode_into(std::string_view input, TokenizerScratch& scratch) c
       if (at < best) { best = at; chosen = &token; }
     }
     if (!chosen) {
-      if (bpe_) encode_bpe_segment(input.substr(pos), out, scratch.bpe_symbols, scratch.ascii, scratch.bpe_input);
+      if (bpe_) encode_bpe_segment(input.substr(pos), scratch);
       else encode_segment(input.substr(pos), out, scratch.ascii);
       break;
     }
@@ -400,7 +449,7 @@ void Tokenizer::encode_into(std::string_view input, TokenizerScratch& scratch) c
       }
     }
     if (segment_end > pos) {
-      if (bpe_) encode_bpe_segment(input.substr(pos, segment_end-pos), out, scratch.bpe_symbols, scratch.ascii, scratch.bpe_input);
+      if (bpe_) encode_bpe_segment(input.substr(pos, segment_end-pos), scratch);
       else encode_segment(input.substr(pos, segment_end-pos), out, scratch.ascii);
     }
     if (max_tokens_ && out.size() >= max_tokens_) break;

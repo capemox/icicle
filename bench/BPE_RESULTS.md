@@ -71,6 +71,95 @@ executables byte-for-byte on the first 1,000 GooAQ inputs. The offline test
 suite passes, and token IDs match Hugging Face Tokenizers on 3,012 additional
 random and edge-case inputs in both streaming and four-worker batch modes.
 
+## Further optimizations (2026-10-08)
+
+Three additional changes preserve the tokenizer and binary output semantics:
+
+- The compiler precomputes merge rank and result ID for all 256 × 256 initial
+  byte pairs. This adds exactly 512 KiB of shared read-only data per BPE model
+  and removes initial merge searches. Only pairs involving merged tokens need
+  the general merge lookup. Missing alphabet bytes use the configured unknown
+  ID, or are skipped when no unknown token exists.
+- Pieces with at least 128 initial symbols use stable linked indices and a
+  minimum heap ordered by merge rank, then original position. Token versions
+  invalidate stale candidates. Neighbor updates replace full scans and vector
+  erases, changing worst-case merge selection/removal from quadratic to
+  O(n log n). Short pieces keep the simpler loop. Each worker reuses its own
+  heap and links; long pieces require additional scratch memory proportional
+  to piece length.
+- Sparse binary batches use a reusable 1 MiB output buffer, replacing two
+  ostream calls per pair with packed writes. Larger outputs flush in chunks.
+  Streaming sparse output and JSON formatting retain their existing behavior.
+
+The previous executables from commit `c359724` and newly compiled executables
+were measured in alternating order on the same host, using the corpus, CPU
+sets, build flags and binary output settings above. There was one warmup per
+executable/configuration followed by three timed runs for each. Medians:
+
+| Mode | Dense before QPS | Dense after QPS | Sparse before QPS | Sparse after QPS |
+| --- | ---: | ---: | ---: | ---: |
+| One thread, streaming | 227,843 | **291,299** | 321,391 | **454,992** |
+| 8 workers, batch 4,096 | 867,401 | **1,083,120** | 972,880 | **1,808,285** |
+| 16 workers, batch 4,096 | 1,301,762 | **1,494,508** | 1,194,810 | **2,409,446** |
+
+Dense improved 15–28% and sparse improved 42–102% in these configurations.
+The single-thread sparse result does not use the new batch output buffer;
+its improvement comes from the tokenizer changes. These remain synthetic
+weight fixtures. Output to `/dev/null` excludes downstream storage or consumer
+costs; the repeated short English corpus does not represent every workload.
+
+Raw times in seconds, listed in run order:
+
+| Model/mode | Before | After |
+| --- | --- | --- |
+| Dense streaming | 4.3941, 4.3890, 4.3379 | 3.4485, 3.4329, 3.4016 |
+| Dense 8 workers | 1.1663, 1.1353, 1.1529 | 0.9577, 0.9086, 0.9233 |
+| Dense 16 workers | 0.7737, 0.7617, 0.7682 | 0.6691, 0.6702, 0.6654 |
+| Sparse streaming | 3.1127, 3.1115, 3.1099 | 2.1978, 2.1994, 2.1942 |
+| Sparse 8 workers | 1.0241, 1.0279, 1.0297 | 0.5501, 0.5530, 0.5568 |
+| Sparse 16 workers | 0.8370, 0.8462, 0.7723 | 0.4119, 0.4150, 0.4293 |
+
+A separate sparse streaming stress run on CPU 0 used ASCII inputs consisting
+of one long BPE piece. Each size processed `max(8, 262144 // size)` queries,
+with three alternating timed runs and binary output to `/dev/null`. Repeated
+`a` pieces and mixed letters (`random.Random(21).choices('abcdefghijk', k=size)`)
+exercise different merge patterns. These are deliberately artificial inputs,
+not GooAQ queries. Full-process speedups including startup were:
+
+| Bytes per piece | Repeated `a` | Mixed letters |
+| ---: | ---: | ---: |
+| 128 | 1.48× | 1.66× |
+| 256 | 1.98× | 2.17× |
+| 1,024 | 2.03× | 2.28× |
+| 4,096 | 5.52× | 4.57× |
+| 16,384 | 22.96× | 15.23× |
+
+Correctness checks:
+
+- Offline fixtures cover equal-rank ties, stale heap entries, merges on both
+  sides, short/long threshold boundaries, Unicode bytes, truncation and
+  incomplete byte alphabets, with a simple independent full-scan BPE oracle.
+- Sparse binary tests check exact counts, IDs and weights, empty records,
+  partial batches and output crossing the 1 MiB buffer boundary.
+- Hugging Face Tokenizers matches all IDs on 1,508 extra inputs in streaming
+  and four-worker batch modes: 1,000 GooAQ queries, 500 seeded mixed ASCII/
+  Unicode strings, and eight long-piece stress cases.
+- Dense and sparse binary output is byte-identical to the previous executables
+  on the first 1,000 GooAQ inputs in streaming and batch modes. SHA-256:
+  dense `10e301e82c8bc8ebfb7a9c5456ecebab2fb1a33036ab750054b8334418bce7c2`;
+  sparse `4e6144bd5dc7a8f75913a3646dfe563e792d5eea45b4fcbfb948463c2cbb4f64`.
+
+Compatibility investigation found the real distilled checkpoint
+[`astanguyen/jina-code-static-256`](https://huggingface.co/astanguyen/jina-code-static-256/tree/b4459b817b536239ebbf8e29ff487fea4b16f3f7)
+with a null normalizer and ByteLevel BPE. Its float16 weights and `single_word`
+added-token matching are currently unsupported, so it was not used for a
+trained-model parity or throughput claim. Several other static checkpoints
+use Unigram or pre-tokenizer/normalizer sequences beyond the supported subset.
+A directly compatible trained BPE checkpoint remains an outstanding validation
+item. The Linux build and tests pass; an actual macOS execution remains pending
+because this workspace has no macOS host or configured remote runner. The CI
+workflow continues to cover both platforms.
+
 ## Reproduce
 
 Build Icicle, fetch the pinned tokenizer, and make the fixtures:

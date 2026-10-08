@@ -2,6 +2,7 @@
 #include "tokenizer.hpp"
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -221,6 +222,7 @@ static uint64_t u64le(const char* p) {
   uint64_t x = 0; for (int i = 7; i >= 0; --i) x = (x << 8) | static_cast<unsigned char>(p[i]); return x;
 }
 struct Weights { std::vector<char> data; uint32_t dimension = 0; };
+struct BuildOptions { uint32_t dimension = 0; bool quantize = false; };
 static Weights weights(const fs::path& p, const Imported& m) {
   auto bytes = read_bytes(p);
   if (bytes.size() < 9) throw std::runtime_error("truncated safetensors file");
@@ -251,8 +253,44 @@ static Weights weights(const fs::path& p, const Imported& m) {
 }
 static void align8(std::vector<char>& v) { while (v.size() & 7) v.push_back(0); }
 static_assert(sizeof(icicle::BpeMerge) == 16);
+static_assert(sizeof(icicle::BpePair) == 8);
 template<class T> static void append(std::vector<char>& v, const T& x) {
   const char* p = reinterpret_cast<const char*>(&x); v.insert(v.end(), p, p + sizeof(T));
+}
+static std::vector<float> compact_weights(Weights& weights, const Imported& m, const BuildOptions& options) {
+  if (m.sparse && (options.dimension || options.quantize))
+    throw std::runtime_error("--dimension and --quantize apply to dense models only");
+  if (options.dimension > weights.dimension) throw std::runtime_error("requested dimension exceeds source dimension");
+  if (!options.dimension && !options.quantize) return {};
+  uint32_t source_dimension = weights.dimension;
+  uint32_t dimension = options.dimension ? options.dimension : source_dimension;
+  auto source = std::move(weights.data);
+  std::vector<float> scales;
+  if (options.quantize) scales.reserve(m.vocab_size);
+  weights.data.resize(static_cast<size_t>(m.vocab_size) * dimension * (options.quantize ? 1 : sizeof(float)));
+  for (uint32_t id = 0; id < m.vocab_size; ++id) {
+    const char* row = source.data() + static_cast<size_t>(id) * source_dimension * sizeof(float);
+    if (!options.quantize) {
+      std::memcpy(weights.data.data() + static_cast<size_t>(id) * dimension * sizeof(float), row, dimension * sizeof(float));
+      continue;
+    }
+    float maximum = 0;
+    for (uint32_t j = 0; j < dimension; ++j) {
+      float value; std::memcpy(&value, row + j * sizeof(float), sizeof(value));
+      if (!std::isfinite(value)) throw std::runtime_error("int8 quantization requires finite weights");
+      maximum = std::max(maximum, std::abs(value));
+    }
+    float scale = maximum ? maximum / 127.0f : 1.0f;
+    if (scale == 0) scale = maximum; // Avoid underflow for subnormal rows.
+    scales.push_back(scale);
+    for (uint32_t j = 0; j < dimension; ++j) {
+      float value; std::memcpy(&value, row + j * sizeof(float), sizeof(value));
+      int8_t q = static_cast<int8_t>(std::lround(std::clamp(value / scale, -127.0f, 127.0f)));
+      std::memcpy(weights.data.data() + static_cast<size_t>(id) * dimension + j, &q, sizeof(q));
+    }
+  }
+  weights.dimension = dimension;
+  return scales;
 }
 static fs::path resources(const char* argv0) {
   fs::path executable;
@@ -278,8 +316,10 @@ static fs::path resources(const char* argv0) {
   throw std::runtime_error("runtime source files not found");
 }
 static void build(const Source& src, const Imported& m, const fs::path& output, const std::string& cxx,
-                  const fs::path& temp, const char* argv0) {
+                  const fs::path& temp, const char* argv0, const BuildOptions& options) {
   auto w = weights(src.get(module_file(m, "model.safetensors")), m);
+  uint32_t source_dimension = w.dimension;
+  auto scales = compact_weights(w, m, options);
   const auto& tok = m.tokenizer;
   const auto& model = tok.at("model");
   auto vocab = model.at("vocab");
@@ -357,6 +397,9 @@ static void build(const Source& src, const Imported& m, const fs::path& output, 
   }
   std::vector<char> blob = std::move(w.data);
   align8(blob);
+  uint64_t scales_offset = blob.size();
+  for (float scale : scales) append(blob, scale);
+  align8(blob);
   uint64_t nodes_offset = blob.size();
   for (const auto& node : nodes) append(blob, node);
   align8(blob);
@@ -396,6 +439,27 @@ static void build(const Source& src, const Imported& m, const fs::path& output, 
       append(blob, static_cast<uint32_t>(cursor));
     }
   }
+  align8(blob);
+  uint64_t byte_pairs_offset = blob.size();
+  if (m.bpe) {
+    std::array<uint32_t, 256> byte_ids;
+    const auto& alphabet = icicle::bytelevel_alphabet();
+    for (size_t b = 0; b < byte_ids.size(); ++b)
+      byte_ids[b] = vocab.contains(alphabet[b]) ? vocab.at(alphabet[b]).get<uint32_t>() : unknown_id;
+    // Precompute the first generation of merges. Later merges still use the
+    // per-left offset index. This 512 KiB table is shared read-only by workers.
+    for (uint32_t left : byte_ids)
+      for (uint32_t right : byte_ids) {
+        icicle::BpePair pair{UINT32_MAX, UINT32_MAX};
+        if (left != UINT32_MAX && right != UINT32_MAX) {
+          uint64_t key = (static_cast<uint64_t>(left) << 32) | right;
+          auto rule = std::lower_bound(merges.begin(), merges.end(), key,
+            [](const auto& rule, uint64_t value) { return rule.key < value; });
+          if (rule != merges.end() && rule->key == key) pair = {rule->rank, rule->token_id};
+        }
+        append(blob, pair);
+      }
+  }
   fs::path blobfile = temp / "model.bin";
   std::ofstream bin(blobfile, std::ios::binary); bin.write(blob.data(), blob.size()); bin.close();
   if (!bin) throw std::runtime_error("cannot write model blob");
@@ -406,12 +470,16 @@ static void build(const Source& src, const Imported& m, const fs::path& output, 
   std::string header = "#pragma once\n#include <cstdint>\n#include <string_view>\n#include <utility>\n#include <vector>\nnamespace model {\n";
   auto constant = [&](const std::string& key, auto value) { header += "inline constexpr auto " + key + " = " + std::to_string(value) + ";\n"; };
   constant("kind", m.sparse ? 2 : 1); constant("dimension", w.dimension);
+  constant("source_dimension", source_dimension);
+  constant("quantized", options.quantize ? 1 : 0);
+  constant("scales_offset", scales_offset);
   constant("bpe", m.bpe ? 1 : 0);
   constant("bytelevel_prefix_space", m.bytelevel_prefix_space ? 1 : 0);
   constant("bytelevel_regex", m.bytelevel_regex ? 1 : 0);
   constant("merges_offset", merges_offset); constant("merges_count", merges.size());
   constant("merge_index_offset", merge_index_offset);
   constant("merge_index_count", m.bpe ? static_cast<uint64_t>(m.vocab_size) + 1 : 0);
+  constant("byte_pairs_offset", byte_pairs_offset);
   constant("normalize", m.normalize ? 1 : 0);
   constant("nodes_offset", nodes_offset); constant("nodes_count", nodes.size());
   constant("unknown_id", unknown_id);
@@ -452,12 +520,14 @@ int main(int argc, char** argv) {
   try {
     if (argc == 1 || std::string_view(argv[1]) == "--help") {
       std::cout << "icicle inspect MODEL [--revision REV] [--local DIR]\n"
-                   "icicle build MODEL --output FILE [--revision REV] [--local DIR] [--route query] [--cxx COMPILER]\n";
+                   "icicle build MODEL --output FILE [--revision REV] [--local DIR] [--route query] [--cxx COMPILER]\n"
+                   "             [--dimension N] [--quantize int8]\n";
       return argc == 1 ? 1 : 0;
     }
     if (argc < 3) throw std::runtime_error("usage: icicle inspect|build MODEL [--revision SHA] [--local DIR] [--output PATH] [--cxx COMPILER]");
     std::string action = argv[1], model = argv[2], rev = "main", cxx = "c++";
     fs::path local, output;
+    BuildOptions options;
     for (int i = 3; i < argc; ++i) {
       std::string opt = argv[i];
       if (i + 1 >= argc) throw std::runtime_error("missing value for " + opt);
@@ -466,10 +536,23 @@ int main(int argc, char** argv) {
       else if (opt == "--local") local = val;
       else if (opt == "--output") output = val;
       else if (opt == "--cxx") cxx = val;
+      else if (opt == "--quantize") {
+        if (val != "int8") throw std::runtime_error("--quantize supports int8 only");
+        options.quantize = true;
+      }
+      else if (opt == "--dimension") {
+        size_t parsed = 0;
+        auto dimension = std::stoull(val, &parsed);
+        if (parsed != val.size() || dimension == 0 || dimension > UINT32_MAX)
+          throw std::runtime_error("--dimension must be a positive 32-bit integer");
+        options.dimension = static_cast<uint32_t>(dimension);
+      }
       else if (opt == "--route") { if (val != "query") throw std::runtime_error("only --route query is supported"); }
       else throw std::runtime_error("unknown option " + opt);
     }
     if (action != "inspect" && action != "build") throw std::runtime_error("unknown command " + action);
+    if (action == "inspect" && (options.dimension || options.quantize))
+      throw std::runtime_error("--dimension and --quantize are build options");
     if (action == "build" && output.empty()) throw std::runtime_error("--output is required");
     fs::path temp = fs::temp_directory_path() / ("icicle-" + std::to_string(getpid()));
     fs::create_directories(temp);
@@ -492,7 +575,7 @@ int main(int argc, char** argv) {
                 << "\nmax tokens: " << (m.max_tokens ? std::to_string(m.max_tokens) : "unlimited")
                 << "\nnormalize: " << (m.normalize ? "yes" : "no")
                 << "\ndefault prompt: " << std::quoted(default_prompt(src)) << '\n';
-    } else build(src, m, fs::absolute(output), cxx, temp, argv[0]);
+    } else build(src, m, fs::absolute(output), cxx, temp, argv[0], options);
   } catch (const std::exception& e) {
     std::cerr << "icicle: " << e.what() << '\n'; return 1;
   }

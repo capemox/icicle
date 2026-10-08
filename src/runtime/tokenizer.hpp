@@ -38,13 +38,37 @@ inline size_t ascii_prefix_length(std::string_view text) {
 
 struct TrieNode { uint32_t base, parent, token_id; };
 struct BpeMerge { uint64_t key; uint32_t rank, token_id; };
+struct BpePair { uint32_t rank, token_id; };
 struct BpeSymbol { uint32_t id, pair_rank, merged_id; };
+struct BpeLink { uint32_t previous, next, version; };
+struct BpeCandidate { uint32_t rank, left, right, token_id, left_version, right_version; };
+// The standard GPT-2 ByteLevel alphabet. Use the same mapping when compiling
+// the byte-pair table and when tokenizing, including bytes of Unicode input.
+inline const std::array<std::string, 256>& bytelevel_alphabet() {
+  static const auto alphabet = [] {
+    std::array<std::string, 256> result;
+    uint32_t extra = 0;
+    for (uint32_t b = 0; b < 256; ++b) {
+      bool direct = (b >= 33 && b <= 126) || (b >= 161 && b <= 172) || b >= 174;
+      uint32_t cp = direct ? b : 256 + extra++;
+      if (cp < 128) result[b].push_back(static_cast<char>(cp));
+      else {
+        result[b].push_back(static_cast<char>(0xc0 | (cp >> 6)));
+        result[b].push_back(static_cast<char>(0x80 | (cp & 63)));
+      }
+    }
+    return result;
+  }();
+  return alphabet;
+}
 struct AddedToken { std::string_view text; uint32_t id; bool lstrip, rstrip; };
 struct TokenizerScratch {
   std::string input;
   std::string ascii;
   std::vector<uint32_t> ids;
   std::vector<BpeSymbol> bpe_symbols;
+  std::vector<BpeLink> bpe_links;
+  std::vector<BpeCandidate> bpe_heap;
   std::string bpe_input;
 };
 class Tokenizer {
@@ -52,6 +76,7 @@ public:
   Tokenizer(const unsigned char* blob, uint64_t nodes_offset, uint32_t nodes_count,
             bool bpe, uint64_t merges_offset, uint32_t merges_count,
             uint64_t merge_index_offset, uint32_t merge_index_count,
+            uint64_t byte_pairs_offset,
             bool bytelevel_prefix_space, bool bytelevel_regex,
             uint32_t unknown_id, uint32_t max_chars,
             uint32_t max_tokens, bool clean_text, bool chinese, bool lowercase,
@@ -62,9 +87,7 @@ private:
   uint32_t child(uint32_t node, uint8_t byte) const;
   uint32_t token_id(std::string_view value) const;
   const BpeMerge* merge(uint32_t left, uint32_t right) const;
-  void encode_bpe_segment(std::string_view text, std::vector<uint32_t>& out,
-                          std::vector<BpeSymbol>& symbols, std::string& bytes,
-                          std::string& prefix_input) const;
+  void encode_bpe_segment(std::string_view text, TokenizerScratch& scratch) const;
   void encode_ascii_segment(std::string_view text, std::vector<uint32_t>& out,
                             std::string& cleaned) const;
   void encode_segment(std::string_view text, std::vector<uint32_t>& out,
@@ -72,6 +95,7 @@ private:
   const TrieNode* nodes_;
   const BpeMerge* merges_;
   const uint32_t* merge_index_;
+  const BpePair* byte_pairs_;
   uint32_t nodes_count_;
   uint32_t merges_count_;
   uint32_t merge_index_count_;

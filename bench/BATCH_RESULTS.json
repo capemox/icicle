@@ -1,0 +1,883 @@
+{
+  "date": "2026-10-08",
+  "cpu": "Intel Core i9-13900HX (8 P cores + 16 E cores, 32 logical CPUs)",
+  "source_models": {
+    "dense": {
+      "repo": "sentence-transformers/static-retrieval-mrl-en-v1",
+      "revision": "f60985c706f192d45d218078e49e5a8b6f15283a"
+    },
+    "sparse": {
+      "repo": "monkeypostulate/inference-free-splade-distilbert-base-uncased-nq",
+      "revision": "1499ddff8c6545b3f3c7d103249bfbce64da3271"
+    }
+  },
+  "corpus": "GooAQ first 10,000 questions repeated 100 times; 43.38 mean characters",
+  "timing": "One warmup, then three runs; median. CLI binary output to /dev/null. Native benchmark excludes input validation and I/O.",
+  "benchmarks": {
+    "dense_float32_1024": {
+      "model": {
+        "model": "build/bench/sources/static-retrieval-mrl-en-v1",
+        "revision": "local",
+        "kind": "dense",
+        "dimension": 1024,
+        "source_dimension": 1024,
+        "weight_dtype": "float32",
+        "lto": false,
+        "default_prompt": ""
+      },
+      "corpus_sha256": "b8a280ef9ffa7b4f7b66b320c847b804bfeaff5b363294911ea7422e55203d87",
+      "queries_per_run": 1000000,
+      "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+      "schedule": "dynamic",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31
+      ],
+      "results": [
+        {
+          "mode": "in-memory",
+          "threads": 32,
+          "batch_size": 4096,
+          "unique_queries": 10000,
+          "queries_per_run": 1000000,
+          "runs_seconds": [
+            0.259548182,
+            0.249883267,
+            0.255906336
+          ],
+          "median_qps": 3907679.72,
+          "checksum": 162.517181
+        },
+        {
+          "mode": "cli",
+          "threads": 32,
+          "batch_size": 4096,
+          "pipeline": false,
+          "runs_seconds": [
+            0.3578842980787158,
+            0.37974710995331407,
+            0.3862861900124699
+          ],
+          "median_qps": 2633331.4297584505
+        },
+        {
+          "mode": "cli",
+          "threads": 32,
+          "batch_size": 4096,
+          "pipeline": true,
+          "runs_seconds": [
+            0.3035349000710994,
+            0.2864586201030761,
+            0.30690237903036177
+          ],
+          "median_qps": 3294514.073227698
+        },
+        {
+          "mode": "in-memory",
+          "threads": 32,
+          "batch_size": 16384,
+          "unique_queries": 10000,
+          "queries_per_run": 1000000,
+          "runs_seconds": [
+            0.232452905,
+            0.226351887,
+            0.229642808
+          ],
+          "median_qps": 4354588.8,
+          "checksum": 162.517181
+        },
+        {
+          "mode": "cli",
+          "threads": 32,
+          "batch_size": 16384,
+          "pipeline": false,
+          "runs_seconds": [
+            0.3303450378589332,
+            0.31809292384423316,
+            0.3394745758268982
+          ],
+          "median_qps": 3027137.9478901955
+        },
+        {
+          "mode": "cli",
+          "threads": 32,
+          "batch_size": 16384,
+          "pipeline": true,
+          "runs_seconds": [
+            0.2621483588591218,
+            0.2652895338833332,
+            0.26667135395109653
+          ],
+          "median_qps": 3769466.4593883734
+        },
+        {
+          "mode": "in-memory",
+          "threads": 32,
+          "batch_size": 65536,
+          "unique_queries": 10000,
+          "queries_per_run": 1000000,
+          "runs_seconds": [
+            0.208423567,
+            0.209276611,
+            0.208488438
+          ],
+          "median_qps": 4796429.05,
+          "checksum": -26799.0312
+        },
+        {
+          "mode": "cli",
+          "threads": 32,
+          "batch_size": 65536,
+          "pipeline": false,
+          "runs_seconds": [
+            0.3071172181516886,
+            0.3097162670455873,
+            0.31393102114088833
+          ],
+          "median_qps": 3228761.6325067272
+        },
+        {
+          "mode": "cli",
+          "threads": 32,
+          "batch_size": 65536,
+          "pipeline": true,
+          "runs_seconds": [
+            0.2967584040015936,
+            0.31288210884667933,
+            0.2995953820645809
+          ],
+          "median_qps": 3337835.1599038984
+        }
+      ]
+    },
+    "dense_int8_1024": {
+      "model": {
+        "model": "build/bench/sources/static-retrieval-mrl-en-v1",
+        "revision": "local",
+        "kind": "dense",
+        "dimension": 1024,
+        "source_dimension": 1024,
+        "weight_dtype": "int8",
+        "lto": false,
+        "default_prompt": ""
+      },
+      "corpus_sha256": "b8a280ef9ffa7b4f7b66b320c847b804bfeaff5b363294911ea7422e55203d87",
+      "queries_per_run": 1000000,
+      "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+      "schedule": "dynamic",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31
+      ],
+      "results": [
+        {
+          "mode": "in-memory",
+          "threads": 32,
+          "batch_size": 4096,
+          "unique_queries": 10000,
+          "queries_per_run": 1000000,
+          "runs_seconds": [
+            0.227004763,
+            0.225573455,
+            0.228825417
+          ],
+          "median_qps": 4405193.91,
+          "checksum": 280.118835
+        },
+        {
+          "mode": "cli",
+          "threads": 32,
+          "batch_size": 4096,
+          "pipeline": false,
+          "runs_seconds": [
+            0.31876917998306453,
+            0.34285626490600407,
+            0.37339752609841526
+          ],
+          "median_qps": 2916674.1353673544
+        },
+        {
+          "mode": "cli",
+          "threads": 32,
+          "batch_size": 4096,
+          "pipeline": true,
+          "runs_seconds": [
+            0.25866127107292414,
+            0.2758156380150467,
+            0.2706100440118462
+          ],
+          "median_qps": 3695354.3378316886
+        },
+        {
+          "mode": "in-memory",
+          "threads": 32,
+          "batch_size": 16384,
+          "unique_queries": 10000,
+          "queries_per_run": 1000000,
+          "runs_seconds": [
+            0.183488175,
+            0.18911028,
+            0.185541698
+          ],
+          "median_qps": 5389624.06,
+          "checksum": 280.118835
+        },
+        {
+          "mode": "cli",
+          "threads": 32,
+          "batch_size": 16384,
+          "pipeline": false,
+          "runs_seconds": [
+            0.28133984515443444,
+            0.271744754165411,
+            0.2730639670044184
+          ],
+          "median_qps": 3662145.580650043
+        },
+        {
+          "mode": "cli",
+          "threads": 32,
+          "batch_size": 16384,
+          "pipeline": true,
+          "runs_seconds": [
+            0.21931802318431437,
+            0.2178234881721437,
+            0.22509105294011533
+          ],
+          "median_qps": 4559588.790199893
+        },
+        {
+          "mode": "in-memory",
+          "threads": 32,
+          "batch_size": 65536,
+          "unique_queries": 10000,
+          "queries_per_run": 1000000,
+          "runs_seconds": [
+            0.170811532,
+            0.171289708,
+            0.170867821
+          ],
+          "median_qps": 5852477.04,
+          "checksum": -23308.2695
+        },
+        {
+          "mode": "cli",
+          "threads": 32,
+          "batch_size": 65536,
+          "pipeline": false,
+          "runs_seconds": [
+            0.26790097006596625,
+            0.2775769450236112,
+            0.2627183219883591
+          ],
+          "median_qps": 3732722.579368661
+        },
+        {
+          "mode": "cli",
+          "threads": 32,
+          "batch_size": 65536,
+          "pipeline": true,
+          "runs_seconds": [
+            0.2691268138587475,
+            0.2604008261114359,
+            0.25702299014665186
+          ],
+          "median_qps": 3840233.592700125
+        }
+      ]
+    },
+    "dense_float32_512": {
+      "model": {
+        "model": "build/bench/sources/static-retrieval-mrl-en-v1",
+        "revision": "local",
+        "kind": "dense",
+        "dimension": 512,
+        "source_dimension": 1024,
+        "weight_dtype": "float32",
+        "lto": false,
+        "default_prompt": ""
+      },
+      "corpus_sha256": "b8a280ef9ffa7b4f7b66b320c847b804bfeaff5b363294911ea7422e55203d87",
+      "queries_per_run": 1000000,
+      "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+      "schedule": "dynamic",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31
+      ],
+      "results": [
+        {
+          "mode": "in-memory",
+          "threads": 24,
+          "batch_size": 16384,
+          "unique_queries": 10000,
+          "queries_per_run": 1000000,
+          "runs_seconds": [
+            0.13700317,
+            0.137083145,
+            0.136408783
+          ],
+          "median_qps": 7299101.18,
+          "checksum": 848.794495
+        },
+        {
+          "mode": "cli",
+          "threads": 24,
+          "batch_size": 16384,
+          "pipeline": true,
+          "runs_seconds": [
+            0.16891809599474072,
+            0.1668945588171482,
+            0.16750674112699926
+          ],
+          "median_qps": 5969908.991554113
+        },
+        {
+          "mode": "in-memory",
+          "threads": 24,
+          "batch_size": 65536,
+          "unique_queries": 10000,
+          "queries_per_run": 1000000,
+          "runs_seconds": [
+            0.124268641,
+            0.124287014,
+            0.122557942
+          ],
+          "median_qps": 8047082.45,
+          "checksum": -21081.8359
+        },
+        {
+          "mode": "cli",
+          "threads": 24,
+          "batch_size": 65536,
+          "pipeline": true,
+          "runs_seconds": [
+            0.19693351513706148,
+            0.203357552876696,
+            0.20309421699494123
+          ],
+          "median_qps": 4923823.114199793
+        }
+      ]
+    },
+    "dense_int8_512": {
+      "model": {
+        "model": "build/bench/sources/static-retrieval-mrl-en-v1",
+        "revision": "local",
+        "kind": "dense",
+        "dimension": 512,
+        "source_dimension": 1024,
+        "weight_dtype": "int8",
+        "lto": false,
+        "default_prompt": ""
+      },
+      "corpus_sha256": "b8a280ef9ffa7b4f7b66b320c847b804bfeaff5b363294911ea7422e55203d87",
+      "queries_per_run": 1000000,
+      "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+      "schedule": "dynamic",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31
+      ],
+      "results": [
+        {
+          "mode": "in-memory",
+          "threads": 24,
+          "batch_size": 16384,
+          "unique_queries": 10000,
+          "queries_per_run": 1000000,
+          "runs_seconds": [
+            0.122440045,
+            0.121271379,
+            0.122294427
+          ],
+          "median_qps": 8176987.49,
+          "checksum": 888.980103
+        },
+        {
+          "mode": "cli",
+          "threads": 24,
+          "batch_size": 16384,
+          "pipeline": true,
+          "runs_seconds": [
+            0.1442869829479605,
+            0.15881190984509885,
+            0.15742972306907177
+          ],
+          "median_qps": 6352040.64712261
+        },
+        {
+          "mode": "in-memory",
+          "threads": 24,
+          "batch_size": 65536,
+          "unique_queries": 10000,
+          "queries_per_run": 1000000,
+          "runs_seconds": [
+            0.115950765,
+            0.115240181,
+            0.115945141
+          ],
+          "median_qps": 8624768.5,
+          "checksum": -19226.3789
+        },
+        {
+          "mode": "cli",
+          "threads": 24,
+          "batch_size": 65536,
+          "pipeline": true,
+          "runs_seconds": [
+            0.2016319539397955,
+            0.18097714497707784,
+            0.184363431064412
+          ],
+          "median_qps": 5424069.156375295
+        }
+      ]
+    },
+    "sparse": {
+      "model": {
+        "model": "build/bench/sources/inference-free-splade-distilbert-base-uncased-nq",
+        "revision": "local",
+        "kind": "sparse-query",
+        "dimension": 30522,
+        "source_dimension": 30522,
+        "weight_dtype": "float32",
+        "lto": false,
+        "default_prompt": ""
+      },
+      "corpus_sha256": "b8a280ef9ffa7b4f7b66b320c847b804bfeaff5b363294911ea7422e55203d87",
+      "queries_per_run": 1000000,
+      "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+      "schedule": "dynamic",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31
+      ],
+      "results": [
+        {
+          "mode": "in-memory",
+          "threads": 24,
+          "batch_size": 4096,
+          "unique_queries": 10000,
+          "queries_per_run": 1000000,
+          "runs_seconds": [
+            0.057137839,
+            0.05294404,
+            0.05192783
+          ],
+          "median_qps": 18887867.3,
+          "checksum": 5639.8374
+        },
+        {
+          "mode": "cli",
+          "threads": 24,
+          "batch_size": 4096,
+          "pipeline": true,
+          "runs_seconds": [
+            0.13163615902885795,
+            0.11838765698485076,
+            0.11947892000898719
+          ],
+          "median_qps": 8369677.2612673445
+        },
+        {
+          "mode": "in-memory",
+          "threads": 24,
+          "batch_size": 16384,
+          "unique_queries": 10000,
+          "queries_per_run": 1000000,
+          "runs_seconds": [
+            0.057893226,
+            0.058474152,
+            0.060584204
+          ],
+          "median_qps": 17101573.4,
+          "checksum": 5639.8374
+        },
+        {
+          "mode": "cli",
+          "threads": 24,
+          "batch_size": 16384,
+          "pipeline": true,
+          "runs_seconds": [
+            0.11082984693348408,
+            0.10163753386586905,
+            0.10678006196394563
+          ],
+          "median_qps": 9365044.200270748
+        },
+        {
+          "mode": "in-memory",
+          "threads": 24,
+          "batch_size": 65536,
+          "unique_queries": 10000,
+          "queries_per_run": 1000000,
+          "runs_seconds": [
+            0.049348413,
+            0.049427853,
+            0.047982899
+          ],
+          "median_qps": 20264076.2,
+          "checksum": 165018.266
+        },
+        {
+          "mode": "cli",
+          "threads": 24,
+          "batch_size": 65536,
+          "pipeline": true,
+          "runs_seconds": [
+            0.13208076287992299,
+            0.12435739603824914,
+            0.12681395397521555
+          ],
+          "median_qps": 7885567.547207301
+        }
+      ]
+    },
+    "dense_float32_1024_lto": {
+      "model": {
+        "model": "build/bench/sources/static-retrieval-mrl-en-v1",
+        "revision": "local",
+        "kind": "dense",
+        "dimension": 1024,
+        "source_dimension": 1024,
+        "weight_dtype": "float32",
+        "lto": true,
+        "default_prompt": ""
+      },
+      "corpus_sha256": "b8a280ef9ffa7b4f7b66b320c847b804bfeaff5b363294911ea7422e55203d87",
+      "queries_per_run": 1000000,
+      "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+      "schedule": "dynamic",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31
+      ],
+      "results": [
+        {
+          "mode": "in-memory",
+          "threads": 32,
+          "batch_size": 16384,
+          "unique_queries": 10000,
+          "queries_per_run": 1000000,
+          "runs_seconds": [
+            0.228038095,
+            0.224417205,
+            0.224525356
+          ],
+          "median_qps": 4453839.95,
+          "checksum": 162.517181
+        }
+      ]
+    }
+  },
+  "baseline": [
+    {
+      "executable": "build/embed-final-static",
+      "flags": [],
+      "seconds": [
+        1.9418168470729142,
+        1.9431190111208707,
+        1.9408312519080937
+      ],
+      "qps": 514981.62739055196
+    },
+    {
+      "executable": "build/embed-batch-final",
+      "flags": [],
+      "seconds": [
+        1.9801370438653976,
+        1.9805032738950104,
+        1.9850703030824661
+      ],
+      "qps": 504922.16457351414
+    },
+    {
+      "executable": "build/embed-final-static",
+      "flags": [
+        "--threads",
+        "16",
+        "--batch-size",
+        "4096"
+      ],
+      "seconds": [
+        0.5197845890652388,
+        0.523049714975059,
+        0.5346109238453209
+      ],
+      "qps": 1911864.1524308713
+    }
+  ],
+  "quality": {
+    "dataset": "zeta-alpha-ai/NanoMSMARCO",
+    "revision": "7b8ff22f2771dc65ac5b439f222eb19a1f56abda",
+    "file_sha256": {
+      "corpus": "98a9e3acf124ede0af69e2691843321568a653207c615d648c3f79e8b92b8c2f",
+      "queries": "c61105bc59b5b7dfef6c03cdee008ff6b6ddba0c4f13d3f09807689ddb8efebd",
+      "qrels": "e804d7e5f0e90c9c06fd8d187fa6989efb9e041eef0000cd732928ca04b1174e"
+    },
+    "queries": 50,
+    "documents": 5043,
+    "results": [
+      {
+        "executable": "embed-batch-final",
+        "model": {
+          "model": "build/bench/sources/static-retrieval-mrl-en-v1",
+          "revision": "local",
+          "kind": "dense",
+          "dimension": 1024,
+          "source_dimension": 1024,
+          "weight_dtype": "float32",
+          "lto": false,
+          "default_prompt": ""
+        },
+        "ndcg_at_10": 0.4040678769319761,
+        "mrr_at_10": 0.32446825396825396,
+        "recall_at_10": 0.66
+      },
+      {
+        "executable": "embed-batch-final-int8",
+        "model": {
+          "model": "build/bench/sources/static-retrieval-mrl-en-v1",
+          "revision": "local",
+          "kind": "dense",
+          "dimension": 1024,
+          "source_dimension": 1024,
+          "weight_dtype": "int8",
+          "lto": false,
+          "default_prompt": ""
+        },
+        "ndcg_at_10": 0.4040678769319761,
+        "mrr_at_10": 0.32446825396825396,
+        "recall_at_10": 0.66,
+        "prefix_byte_equal": false,
+        "mean_cosine_to_reference_prefix": 0.9999779462814331,
+        "minimum_cosine_to_reference_prefix": 0.9999542832374573,
+        "maximum_absolute_error_to_prefix": 0.21974802017211914,
+        "mean_top10_overlap": 0.998
+      },
+      {
+        "executable": "embed-batch-final-512",
+        "model": {
+          "model": "build/bench/sources/static-retrieval-mrl-en-v1",
+          "revision": "local",
+          "kind": "dense",
+          "dimension": 512,
+          "source_dimension": 1024,
+          "weight_dtype": "float32",
+          "lto": false,
+          "default_prompt": ""
+        },
+        "ndcg_at_10": 0.389268305855456,
+        "mrr_at_10": 0.31730158730158725,
+        "recall_at_10": 0.62,
+        "prefix_byte_equal": true,
+        "mean_cosine_to_reference_prefix": 1.0,
+        "minimum_cosine_to_reference_prefix": 0.9999997615814209,
+        "maximum_absolute_error_to_prefix": 0.0,
+        "mean_top10_overlap": 0.9319999999999999
+      },
+      {
+        "executable": "embed-batch-final-512-int8",
+        "model": {
+          "model": "build/bench/sources/static-retrieval-mrl-en-v1",
+          "revision": "local",
+          "kind": "dense",
+          "dimension": 512,
+          "source_dimension": 1024,
+          "weight_dtype": "int8",
+          "lto": false,
+          "default_prompt": ""
+        },
+        "ndcg_at_10": 0.389268305855456,
+        "mrr_at_10": 0.31730158730158725,
+        "recall_at_10": 0.62,
+        "prefix_byte_equal": false,
+        "mean_cosine_to_reference_prefix": 0.9999804496765137,
+        "minimum_cosine_to_reference_prefix": 0.9999580383300781,
+        "maximum_absolute_error_to_prefix": 0.21463394165039062,
+        "mean_top10_overlap": 0.9319999999999999
+      }
+    ]
+  }
+}
