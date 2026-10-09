@@ -1,6 +1,6 @@
 # Batching investigation
 
-The final cleaned-build benchmark for both dense and sparse models is in [FINAL_RESULTS.md](FINAL_RESULTS.md). The measurements below document earlier batch experiments.
+The current dense and sparse benchmarks are in [BATCH_OPTIMIZATIONS.md](BATCH_OPTIMIZATIONS.md). The measurements below document earlier batch experiments.
 
 Flower Computer [reports](https://www.flowercomputer.com/posts/fast-static-embedding/) 4.5 million batched queries/s and 524,900 queries/s in its single-query test for its static encoder on an M4 Mac mini, an 8.6× throughput ratio. The post does not specify the batch size, thread count, treatment of output vectors, or benchmark harness. The [base M4 Mac mini](https://support.apple.com/en-ie/121555) has a 10-core CPU, so parallel work across cores is a plausible contributor to the gap, but the post does not establish that.
 

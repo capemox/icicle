@@ -1,4 +1,6 @@
-# Final throughput benchmark (2026-09-27)
+# Historical throughput benchmark (2026-09-27)
+
+For the current runtime's measurements, see [Batch throughput improvements](BATCH_OPTIMIZATIONS.md). The results below describe the September runtime.
 
 These results use generated C++ executables built from the regular runtime. The dense model is `sentence-transformers/static-retrieval-mrl-en-v1` at revision `f60985c706f192d45d218078e49e5a8b6f15283a` (1,024 dimensions). The sparse model is the **query route** of `monkeypostulate/inference-free-splade-distilbert-base-uncased-nq` at revision `1499ddff8c6545b3f3c7d103249bfbce64da3271` (30,522 dimensions).
 

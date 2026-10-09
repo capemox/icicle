@@ -13,4 +13,6 @@ __pycache__/
 !.env.example
 *.safetensors
 /embed
+/embed-*
 /sparse-query
+/sparse-query-*
