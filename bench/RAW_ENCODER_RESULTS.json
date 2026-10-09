@@ -1,0 +1,748 @@
+{
+  "date": "2026-10-09",
+  "cpu": "Intel Core i9-13900HX (8 P cores + 16 E cores, 32 logical CPUs)",
+  "compiler": "GCC 13.3.0",
+  "runtime_source_commit": "9d0e3affc1497897cce7ba413feadce5b9f53665",
+  "source_models": {
+    "dense": {
+      "repo": "sentence-transformers/static-retrieval-mrl-en-v1",
+      "revision": "f60985c706f192d45d218078e49e5a8b6f15283a"
+    },
+    "sparse": {
+      "repo": "monkeypostulate/inference-free-splade-distilbert-base-uncased-nq",
+      "revision": "1499ddff8c6545b3f3c7d103249bfbce64da3271"
+    }
+  },
+  "results": {
+    "dense": {
+      "date": "2026-10-09",
+      "family": "dense",
+      "native_model": {
+        "model": "build/bench/hf-static-model",
+        "revision": "local",
+        "kind": "dense",
+        "dimension": 1024,
+        "source_dimension": 1024,
+        "weight_dtype": "float32",
+        "default_prompt": ""
+      },
+      "corpus_sha256": "b8a280ef9ffa7b4f7b66b320c847b804bfeaff5b363294911ea7422e55203d87",
+      "native_compile_flags": "-O3 -march=native",
+      "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31
+      ],
+      "versions": {
+        "sentence-transformers": "5.4.1",
+        "torch": "2.11.0",
+        "transformers": "5.5.4",
+        "tokenizers": "0.22.2",
+        "numpy": "1.26.4"
+      },
+      "hf_tokenizer_class": "Tokenizer",
+      "hf_tokenizer_is_fast": null,
+      "parity": {
+        "queries": 1006,
+        "maximum_absolute_error": 0.0,
+        "byte_equal": true,
+        "rtol": 1e-05,
+        "atol": 1e-06
+      },
+      "api_default": {
+        "label": "hf-api-default",
+        "mode": "public-api",
+        "backend": "sentence-transformers",
+        "batch_size": 32,
+        "torch_threads": 24,
+        "queries_per_run": 10000,
+        "runs_seconds": [
+          0.35523838200606406,
+          0.30665366095490754,
+          0.3808484082110226
+        ],
+        "median_qps": 28150.111323920217,
+        "output_shape": [
+          10000,
+          1024
+        ]
+      },
+      "hf_sweep": [
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 256,
+          "torch_threads": 24,
+          "queries_per_run": 100000,
+          "runs_seconds": [
+            1.237072927178815,
+            1.2417862140573561,
+            1.3447208409197628
+          ],
+          "median_qps": 80529.15942210739,
+          "checksum": -61.772972106933594,
+          "final_output_shape": [
+            160,
+            1024
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 4096,
+          "torch_threads": 24,
+          "queries_per_run": 100000,
+          "runs_seconds": [
+            0.6984301689080894,
+            0.8109430409967899,
+            0.7300669660326093
+          ],
+          "median_qps": 136973.73618125517,
+          "checksum": -61.772972106933594,
+          "final_output_shape": [
+            1696,
+            1024
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 16384,
+          "torch_threads": 24,
+          "queries_per_run": 100000,
+          "runs_seconds": [
+            0.6840981189161539,
+            0.8004879839718342,
+            0.6940994069445878
+          ],
+          "median_qps": 144071.5825420426,
+          "checksum": -61.772972106933594,
+          "final_output_shape": [
+            1696,
+            1024
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 65536,
+          "torch_threads": 24,
+          "queries_per_run": 100000,
+          "runs_seconds": [
+            0.7536530587822199,
+            0.7449674890376627,
+            0.6235125390812755
+          ],
+          "median_qps": 134234.04574228928,
+          "checksum": -61.772972106933594,
+          "final_output_shape": [
+            34464,
+            1024
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 256,
+          "torch_threads": 1,
+          "queries_per_run": 100000,
+          "runs_seconds": [
+            1.260243782075122,
+            1.4047149419784546,
+            1.227515315869823
+          ],
+          "median_qps": 79349.72695151063,
+          "checksum": -61.772972106933594,
+          "final_output_shape": [
+            160,
+            1024
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 4096,
+          "torch_threads": 1,
+          "queries_per_run": 100000,
+          "runs_seconds": [
+            0.8637816179543734,
+            0.753616760019213,
+            0.7794191970024258
+          ],
+          "median_qps": 128300.66334597705,
+          "checksum": -61.772972106933594,
+          "final_output_shape": [
+            1696,
+            1024
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 16384,
+          "torch_threads": 1,
+          "queries_per_run": 100000,
+          "runs_seconds": [
+            0.778109204955399,
+            0.8845442610327154,
+            0.8835057080723345
+          ],
+          "median_qps": 113185.46002173965,
+          "checksum": -61.772972106933594,
+          "final_output_shape": [
+            1696,
+            1024
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 65536,
+          "torch_threads": 1,
+          "queries_per_run": 100000,
+          "runs_seconds": [
+            0.8580366298556328,
+            0.8713539598975331,
+            0.7554923759307712
+          ],
+          "median_qps": 116545.14098870732,
+          "checksum": -61.772972106933594,
+          "final_output_shape": [
+            34464,
+            1024
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 256,
+          "torch_threads": 8,
+          "queries_per_run": 100000,
+          "runs_seconds": [
+            0.9823148720897734,
+            0.9795643868856132,
+            0.9892025820445269
+          ],
+          "median_qps": 101800.35225086263,
+          "checksum": -61.772972106933594,
+          "final_output_shape": [
+            160,
+            1024
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 4096,
+          "torch_threads": 8,
+          "queries_per_run": 100000,
+          "runs_seconds": [
+            0.6733676209114492,
+            0.6671936349011958,
+            0.664434754056856
+          ],
+          "median_qps": 149881.52579544458,
+          "checksum": -61.772972106933594,
+          "final_output_shape": [
+            1696,
+            1024
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 16384,
+          "torch_threads": 8,
+          "queries_per_run": 100000,
+          "runs_seconds": [
+            0.7659273908939213,
+            0.6372453651856631,
+            0.7553161091636866
+          ],
+          "median_qps": 132394.89901880105,
+          "checksum": -61.772972106933594,
+          "final_output_shape": [
+            1696,
+            1024
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 65536,
+          "torch_threads": 8,
+          "queries_per_run": 100000,
+          "runs_seconds": [
+            0.6176385930739343,
+            0.7269611819647253,
+            0.7384454719722271
+          ],
+          "median_qps": 137558.9267775406,
+          "checksum": -61.772972106933594,
+          "final_output_shape": [
+            34464,
+            1024
+          ]
+        }
+      ],
+      "hf_best_raw": {
+        "label": "hf-best-raw",
+        "mode": "raw-pipeline",
+        "backend": "sentence-transformers",
+        "batch_size": 4096,
+        "torch_threads": 8,
+        "queries_per_run": 1000000,
+        "runs_seconds": [
+          6.968193819979206,
+          6.925284957047552,
+          6.923953494988382
+        ],
+        "median_qps": 144398.39027596184,
+        "checksum": -61.772972106933594,
+        "final_output_shape": [
+          576,
+          1024
+        ]
+      },
+      "icicle_best_raw": {
+        "mode": "in-memory",
+        "threads": 32,
+        "batch_size": 65536,
+        "unique_queries": 10000,
+        "queries_per_run": 1000000,
+        "runs_seconds": [
+          0.209201241,
+          0.207774399,
+          0.206809066
+        ],
+        "median_qps": 4812912.49,
+        "checksum": -26799.0312,
+        "label": "icicle-best-raw",
+        "backend": "icicle"
+      },
+      "icicle_best_cli": {
+        "label": "icicle-best-cli",
+        "backend": "icicle",
+        "mode": "cli",
+        "pipeline": true,
+        "threads": 32,
+        "batch_size": 16384,
+        "queries_per_run": 1000000,
+        "runs_seconds": [
+          0.25713833793997765,
+          0.25622046389617026,
+          0.2552714101038873
+        ],
+        "median_qps": 3902888.8824634864
+      },
+      "harness_sha256": "63974981b4c2c39d03ce75a731156995415301c78d21603f42492ffeb6e563b2"
+    },
+    "sparse": {
+      "date": "2026-10-09",
+      "family": "sparse",
+      "native_model": {
+        "model": "build/bench/hf-sparse-model",
+        "revision": "local",
+        "kind": "sparse-query",
+        "dimension": 30522,
+        "source_dimension": 30522,
+        "weight_dtype": "float32",
+        "default_prompt": ""
+      },
+      "corpus_sha256": "b8a280ef9ffa7b4f7b66b320c847b804bfeaff5b363294911ea7422e55203d87",
+      "native_compile_flags": "-O3 -march=native",
+      "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31
+      ],
+      "versions": {
+        "sentence-transformers": "5.4.1",
+        "torch": "2.11.0",
+        "transformers": "5.5.4",
+        "tokenizers": "0.22.2",
+        "numpy": "1.26.4"
+      },
+      "hf_tokenizer_class": "DistilBertTokenizer",
+      "hf_tokenizer_is_fast": true,
+      "parity": {
+        "queries": 1006,
+        "maximum_absolute_error": 0.0,
+        "byte_equal": true,
+        "rtol": 1e-05,
+        "atol": 1e-06
+      },
+      "api_default": {
+        "label": "hf-api-default",
+        "mode": "public-api",
+        "backend": "sentence-transformers",
+        "batch_size": 32,
+        "torch_threads": 24,
+        "queries_per_run": 10000,
+        "runs_seconds": [
+          1.0678952930029482,
+          0.9798212959431112,
+          0.9624822831247002
+        ],
+        "median_qps": 10205.942697310596,
+        "output_shape": [
+          10000,
+          30522
+        ]
+      },
+      "hf_sweep": [
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 32,
+          "torch_threads": 24,
+          "queries_per_run": 10000,
+          "runs_seconds": [
+            0.5111845920328051,
+            0.5536191558931023,
+            0.5255540229845792
+          ],
+          "median_qps": 19027.539629914354,
+          "checksum": 9.996781349182129,
+          "final_output_shape": [
+            16,
+            30522
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 256,
+          "torch_threads": 24,
+          "queries_per_run": 10000,
+          "runs_seconds": [
+            0.6487114671617746,
+            0.6215882219839841,
+            0.6296382939908653
+          ],
+          "median_qps": 15882.134386421354,
+          "checksum": 9.996781349182129,
+          "final_output_shape": [
+            16,
+            30522
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 1024,
+          "torch_threads": 24,
+          "queries_per_run": 10000,
+          "runs_seconds": [
+            0.6694866740144789,
+            0.8082372259814292,
+            0.6897890400141478
+          ],
+          "median_qps": 14497.18597992641,
+          "checksum": 9.996781349182129,
+          "final_output_shape": [
+            784,
+            30522
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 4096,
+          "torch_threads": 24,
+          "queries_per_run": 10000,
+          "runs_seconds": [
+            0.7556416681036353,
+            0.6555616741534323,
+            0.8007988759782165
+          ],
+          "median_qps": 13233.785830122477,
+          "checksum": 9.996781349182129,
+          "final_output_shape": [
+            1808,
+            30522
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 32,
+          "torch_threads": 1,
+          "queries_per_run": 10000,
+          "runs_seconds": [
+            1.4320253590121865,
+            1.1898754918947816,
+            1.406948730815202
+          ],
+          "median_qps": 7107.579530780689,
+          "checksum": 9.996781349182129,
+          "final_output_shape": [
+            16,
+            30522
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 256,
+          "torch_threads": 1,
+          "queries_per_run": 10000,
+          "runs_seconds": [
+            1.0578951388597488,
+            1.085284068947658,
+            1.0610621329396963
+          ],
+          "median_qps": 9424.51878128454,
+          "checksum": 9.996781349182129,
+          "final_output_shape": [
+            16,
+            30522
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 1024,
+          "torch_threads": 1,
+          "queries_per_run": 10000,
+          "runs_seconds": [
+            1.9229888711124659,
+            1.80826459499076,
+            1.8021351369097829
+          ],
+          "median_qps": 5530.164129575904,
+          "checksum": 9.996781349182129,
+          "final_output_shape": [
+            784,
+            30522
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 4096,
+          "torch_threads": 1,
+          "queries_per_run": 10000,
+          "runs_seconds": [
+            1.8511156130116433,
+            1.7600603988394141,
+            1.8811892170924693
+          ],
+          "median_qps": 5402.1477263274,
+          "checksum": 9.996781349182129,
+          "final_output_shape": [
+            1808,
+            30522
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 32,
+          "torch_threads": 8,
+          "queries_per_run": 10000,
+          "runs_seconds": [
+            0.6141379720065743,
+            0.6313415211625397,
+            0.6439942689612508
+          ],
+          "median_qps": 15839.287714811151,
+          "checksum": 9.996781349182129,
+          "final_output_shape": [
+            16,
+            30522
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 256,
+          "torch_threads": 8,
+          "queries_per_run": 10000,
+          "runs_seconds": [
+            0.5473098058719188,
+            0.5867702609393746,
+            0.5871538941282779
+          ],
+          "median_qps": 17042.44517094435,
+          "checksum": 9.996781349182129,
+          "final_output_shape": [
+            16,
+            30522
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 1024,
+          "torch_threads": 8,
+          "queries_per_run": 10000,
+          "runs_seconds": [
+            0.6872178909834474,
+            0.6846471901517361,
+            0.7326918221078813
+          ],
+          "median_qps": 14551.425583070077,
+          "checksum": 9.996781349182129,
+          "final_output_shape": [
+            784,
+            30522
+          ]
+        },
+        {
+          "label": "hf-sweep",
+          "mode": "raw-pipeline",
+          "backend": "sentence-transformers",
+          "batch_size": 4096,
+          "torch_threads": 8,
+          "queries_per_run": 10000,
+          "runs_seconds": [
+            0.6286008339375257,
+            0.7305448160041124,
+            0.6155881357844919
+          ],
+          "median_qps": 15908.34669652039,
+          "checksum": 9.996781349182129,
+          "final_output_shape": [
+            1808,
+            30522
+          ]
+        }
+      ],
+      "hf_best_raw": {
+        "label": "hf-best-raw",
+        "mode": "raw-pipeline",
+        "backend": "sentence-transformers",
+        "batch_size": 32,
+        "torch_threads": 24,
+        "queries_per_run": 1000000,
+        "runs_seconds": [
+          51.90611151396297,
+          51.627521550050005,
+          51.79147396888584
+        ],
+        "median_qps": 19308.19734153074,
+        "checksum": 9.996781349182129,
+        "final_output_shape": [
+          32,
+          30522
+        ]
+      },
+      "icicle_best_raw": {
+        "mode": "in-memory",
+        "threads": 24,
+        "batch_size": 65536,
+        "unique_queries": 10000,
+        "queries_per_run": 1000000,
+        "runs_seconds": [
+          0.05137368,
+          0.048118415,
+          0.048565324
+        ],
+        "median_qps": 20590823.2,
+        "checksum": 165018.266,
+        "label": "icicle-best-raw",
+        "backend": "icicle"
+      },
+      "icicle_best_cli": {
+        "label": "icicle-best-cli",
+        "backend": "icicle",
+        "mode": "cli",
+        "pipeline": true,
+        "threads": 24,
+        "batch_size": 16384,
+        "queries_per_run": 1000000,
+        "runs_seconds": [
+          0.09022739296779037,
+          0.10504373512230814,
+          0.10368310404010117
+        ],
+        "median_qps": 9644772.976831725
+      },
+      "harness_sha256": "63974981b4c2c39d03ce75a731156995415301c78d21603f42492ffeb6e563b2"
+    }
+  }
+}

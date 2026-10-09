@@ -63,19 +63,20 @@ Speed comes from compiled lookup tables, fast ASCII tokenization, compiler-vecto
 
 Supported models use Sentence Transformers `StaticEmbedding` or a Router query route containing `SparseStaticEmbedding`, with float32 safetensors and supported WordPiece or ByteLevel BPE configurations. Unsupported configurations are rejected. Icicle emits vectors; a search index is separate.
 
-## Throughput vs Hugging Face
+## Throughput vs Sentence Transformers
 
-Same 1,024-dimensional float32 model on an i9-13900HX CPU: 100,000 queries (10,000 GooAQ questions repeated 10 times), one warmup, then the median of three runs. Both paths return the complete NumPy array of vectors.
+Raw text-to-embedding throughput on an i9-13900HX CPU, using the original float32 models. Both include tokenization; model loading and output transport are excluded. Each final run processes one million queries, with one warmup and three measured runs.
 
-| Encoder | Batch size | Queries/s |
-| --- | ---: | ---: |
-| Hugging Face / Sentence Transformers defaults | 32 | 31,980 |
-| Hugging Face, best tested batch/thread settings | 65,536 | 93,984 |
-| Icicle CLI → NumPy, 32 workers | 16,384 | **194,691** |
+| Model | Sentence Transformers raw | Icicle raw | Speedup |
+| --- | ---: | ---: | ---: |
+| Static dense, 1,024 dimensions | 144,398 queries/s | **4.81M queries/s** | 33.3× |
+| Inference-free SPLADE query | 19,308 queries/s | **20.59M queries/s** | 1,066.4× |
 
-Icicle was **6.1× faster than defaults** and **2.1× faster than the tuned baseline**. Its timing includes binary transfer from the executable and allocation of the returned array.
+Sentence Transformers raw timing calls its standard preprocessing and forward methods directly. The sparse baseline creates a dense vocabulary-sized intermediate; Icicle retains active IDs referencing shared weights. See [raw encoder results](bench/RAW_ENCODERS.md) for exact boundaries and the default `encode()` / `encode_query()` rates.
 
-Icicle also reached **4.76M queries/s for encoding alone**, and **1.72M through the binary CLI to `/dev/null`**. These modes reuse or discard batch outputs rather than returning the entire array. See the [comparison report](bench/HF_COMPARISON.md) for the full sweep, timing boundaries, and reproduction commands.
+With binary output to `/dev/null`, Icicle measured **3.90M dense** and **9.64M sparse queries/s**, including packing sparse ID/weight pairs.
+
+Returning a complete dense NumPy array through the CLI is a separate measurement: **195K queries/s**, versus **32K** for HF defaults and **94K** for its best tested setting. That includes pipe transport and array allocation; see the [full-array comparison](bench/HF_COMPARISON.md).
 
 ## Tests and details
 
