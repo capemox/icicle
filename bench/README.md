@@ -2,11 +2,12 @@
 
 ## Current results
 
+- [Hugging Face comparison](HF_COMPARISON.md): defaults, a batch/thread sweep, and Icicle returning the same full NumPy result array. [Raw comparison timings](HF_RESULTS.json).
 - [Batch throughput and quality](BATCH_OPTIMIZATIONS.md): latest measurements for dense float32, optional int8 and reduced dimensions, and inference-free SPLADE queries.
 - [Raw results](BATCH_RESULTS.json): timings, model metadata, corpus checksums, and retrieval quality measurements.
 - [ByteLevel BPE](BPE_RESULTS.md): tokenizer benchmarks using a real RoBERTa tokenizer with synthetic embedding weights.
 
-The latest CLI measurements on an i9-13900HX were 3.77 million queries/s for 1,024-dimensional float32, 4.56 million for int8, and 9.37 million for sparse queries. These used short repeated questions, multiple workers, large batches, and binary output sent to `/dev/null`. They measure aggregate throughput, not single-request latency. In-memory results exclude input and output and are reported separately.
+The October 8 one-million-query CLI measurements on an i9-13900HX were 3.77 million queries/s for 1,024-dimensional float32, 4.56 million for int8, and 9.37 million for sparse queries. These used short repeated questions, multiple workers, large batches, and binary output sent to `/dev/null`. They measure aggregate throughput, not single-request latency. In-memory results exclude input and output and are reported separately. The October 9 Hugging Face comparison uses 100,000 queries per run and measures full-array output separately.
 
 ## Tools
 
@@ -16,7 +17,8 @@ The latest CLI measurements on an i9-13900HX were 3.77 million queries/s for 1,0
 | `batch_sweep.py` | Compare batch sizes, worker counts, pipelining, and in-memory timing |
 | `quality.py` | Compare dense model retrieval quality on NanoMSMARCO |
 | `make_bpe_fixture.py` | Create synthetic weights for ByteLevel BPE tokenizer benchmarks |
-| `reference.py` | Optional Python Sentence Transformers comparison |
+| `reference.py` | Standard Python Sentence Transformers baseline, with optional tuning |
+| `compare_hf.py` | Compare HF defaults and tuned settings with native encoding, CLI output, and full-array output |
 | `parallel.py` | Compare independent worker processes |
 | `native-cxx.sh` | Compile generated executables for the local CPU |
 

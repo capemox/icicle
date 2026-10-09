@@ -63,6 +63,20 @@ Speed comes from compiled lookup tables, fast ASCII tokenization, compiler-vecto
 
 Supported models use Sentence Transformers `StaticEmbedding` or a Router query route containing `SparseStaticEmbedding`, with float32 safetensors and supported WordPiece or ByteLevel BPE configurations. Unsupported configurations are rejected. Icicle emits vectors; a search index is separate.
 
+## Throughput vs Hugging Face
+
+Same 1,024-dimensional float32 model on an i9-13900HX CPU: 100,000 queries (10,000 GooAQ questions repeated 10 times), one warmup, then the median of three runs. Both paths return the complete NumPy array of vectors.
+
+| Encoder | Batch size | Queries/s |
+| --- | ---: | ---: |
+| Hugging Face / Sentence Transformers defaults | 32 | 31,980 |
+| Hugging Face, best tested batch/thread settings | 65,536 | 93,984 |
+| Icicle CLI → NumPy, 32 workers | 16,384 | **194,691** |
+
+Icicle was **6.1× faster than defaults** and **2.1× faster than the tuned baseline**. Its timing includes binary transfer from the executable and allocation of the returned array.
+
+Icicle also reached **4.76M queries/s for encoding alone**, and **1.72M through the binary CLI to `/dev/null`**. These modes reuse or discard batch outputs rather than returning the entire array. See the [comparison report](bench/HF_COMPARISON.md) for the full sweep, timing boundaries, and reproduction commands.
+
 ## Tests and details
 
 ```sh

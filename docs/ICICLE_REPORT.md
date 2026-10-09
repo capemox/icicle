@@ -2,6 +2,8 @@
 
 **Prepared:** 8 October 2026
 
+For the 9 October comparison with Hugging Face defaults and full-array output, see [Throughput compared with Hugging Face](../bench/HF_COMPARISON.md).
+
 **Scope:** the C++ implementation in this repository after experimental code cleanup
 
 **Audience:** readers who want both an approachable explanation and enough detail to inspect the implementation
